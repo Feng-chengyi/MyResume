@@ -49,8 +49,6 @@ a{color:inherit;text-decoration:none}
 .nav-btn-share:hover{color:var(--text);background:rgba(255,255,255,0.12)}
 .nav-btn-dl{color:#1a1816;background:var(--accent);font-weight:600}
 .nav-btn-dl:hover{filter:brightness(1.1)}
-
-/* GitHub icon button */
 .nav-github{display:flex;align-items:center;justify-content:center;width:36px;height:36px;
   border-radius:8px;color:var(--muted);transition:all .2s;flex-shrink:0}
 .nav-github:hover{color:var(--text);background:rgba(255,255,255,0.08)}
@@ -329,8 +327,10 @@ textarea.f-input{resize:vertical;min-height:68px;line-height:1.55}
   .preview-panel{padding:0!important;overflow:visible!important;display:block!important;
     width:100%!important}
   .preview-panel.mob-hide{display:block!important}
-  .a4-paper{box-shadow:none!important;border-radius:0!important;min-height:auto!important;padding:36px 40px!important}
+  .a4-paper{box-shadow:none!important;border-radius:0!important;min-height:auto!important;
+    padding:40px 48px!important}
   .rc[data-t="creative"]{display:grid!important}
+  @page{size:A4 portrait;margin:10mm}
 }
 </style>
 </head>
@@ -340,7 +340,6 @@ textarea.f-input{resize:vertical;min-height:68px;line-height:1.55}
   <div class="nav-brand">Resume<span>.io</span></div>
   <div class="template-switcher" id="tmplBar"></div>
   <div class="nav-actions">
-    <!-- ★ GitHub repo link -->
     <a class="nav-github" href="https://github.com/Feng-chengyi/MyResume" target="_blank" rel="noopener noreferrer" aria-label="GitHub 仓库">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
     </a>
@@ -596,6 +595,7 @@ function renderPreview(){
   $('rc').innerHTML=h;
 }
 
+/* ★ PDF 下载 — 保持原有渲染方式，优化边距参数 */
 function downloadPDF(){
   if(isMobile())mobileTab('preview');
   if(typeof html2pdf==='undefined'){
@@ -605,15 +605,53 @@ function downloadPDF(){
     s.onload=()=>toast('加载完成，请再次点击下载');s.onerror=()=>toast('加载失败，请按 Ctrl+P');
     document.body.appendChild(s);return;
   }
-  toast('正在生成 PDF...');const el=$('rc'),origT=el.dataset.t;let restore=false;
-  if(origT==='creative'){restore=true;el.style.cssText='display:block;padding:44px;margin:0';
-    el.querySelectorAll('.r-hd').forEach(h=>h.style.cssText='background:none;color:inherit;padding:0;margin:0 0 20px');
-    el.querySelectorAll('.r-sec').forEach(s=>s.style.cssText='padding:0 0 4px')}
-  html2pdf().set({margin:0,filename:(S.personal.name||'resume')+'_简历.pdf',
-    image:{type:'jpeg',quality:0.98},html2canvas:{scale:2,useCORS:true,logging:false,allowTaint:true},
-    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['avoid-all','css','legacy']}
-  }).from(el).save().then(()=>{toast('PDF 已下载');if(restore)switchTmpl(origT)})
-  .catch(err=>{console.error(err);toast('生成失败，请按 Ctrl+P');if(restore)switchTmpl(origT);setTimeout(()=>window.print(),800)});
+  toast('正在生成 PDF...');
+
+  const el=$('rc');
+  const paper=el.closest('.a4-paper');
+  const origT=el.dataset.t;
+  let needRestore=false;
+
+  /* 记录原始样式 */
+  const savedPaperCSS=paper.style.cssText;
+  const savedRcCSS=el.style.cssText;
+  let savedHdCSS=[],savedSecCSS=[];
+
+  /* 临时调整 a4-paper 的内边距用于 PDF 输出 */
+  paper.style.cssText=savedPaperCSS+'padding:52px 56px!important;min-height:auto!important;box-shadow:none!important;border-radius:0!important;';
+
+  /* Creative 模板需要强制保持 grid */
+  if(origT==='creative'){
+    needRestore=true;
+    savedRcCSS && (el.style.cssText=savedRcCSS);
+  }
+
+  html2pdf().set({
+    margin:      [10, 10, 10, 10],
+    filename:    (S.personal.name||'resume')+'_简历.pdf',
+    image:       {type:'jpeg',quality:0.98},
+    html2canvas: {
+      scale:      2,
+      useCORS:    true,
+      logging:    false,
+      allowTaint: true,
+      backgroundColor:'#ffffff'
+    },
+    jsPDF:       {unit:'mm',format:'a4',orientation:'portrait',compress:true},
+    pagebreak:   {mode:['avoid-all','css','legacy'],avoid:'.r-en,.r-hd,.r-sw'}
+  }).from(el).save()
+  .then(()=>{
+    toast('PDF 已下载');
+    paper.style.cssText=savedPaperCSS;
+    el.style.cssText=savedRcCSS;
+  })
+  .catch(err=>{
+    console.error(err);
+    paper.style.cssText=savedPaperCSS;
+    el.style.cssText=savedRcCSS;
+    toast('PDF 生成失败，使用浏览器打印');
+    setTimeout(()=>window.print(),500);
+  });
 }
 
 function shareLink(){
