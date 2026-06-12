@@ -7,7 +7,7 @@ Single-file static resume builder (`index.html`). No build step, no package mana
 ## Architecture
 
 - **Single file**: `index.html` contains all HTML, CSS (`<style>`), and JS (`<script>`)
-- **External deps** (CDN only): Google Fonts, html2pdf.js, Supabase JS (`cdnjs.cloudflare.com` / `jsdelivr.net`)
+- **External deps** (CDN only): Google Fonts, html2pdf.js, Supabase JS (`jsdelivr.net`)
 - **UI language**: Chinese (zh-CN) — all labels, placeholders, and toasts are in Chinese
 - **State**: runtime object `S` holds all resume data; `DEMO` is the default sample
 - **Templates**: 6 themes (`classic`, `executive`, `creative`, `academic`, `modern`, `bold`) — switch via `data-t` attribute on `.rc` container
@@ -24,5 +24,7 @@ Single-file static resume builder (`index.html`). No build step, no package mana
 
 - No dev server needed — just open `index.html` in a browser. File protocol works.
 - `html2pdf.js` is loaded with `defer` and may not be available immediately; the `downloadPDF()` function handles lazy loading.
+- Supabase CDN may fail to load in some environments (file protocol, corporate networks). `initSupabase()` tries the deferred `<script>` first, then falls back to dynamic injection. If both fail, share/download features degrade gracefully.
+- Supabase credentials (`SUPABASE_URL`, `SUPABASE_KEY`) are hardcoded in `index.html` — the anon key is safe to ship client-side, but the `resumes` table RLS must allow public insert/select for sharing to work.
 - The `creative` template uses CSS Grid (`display:grid; grid-template-columns:185px 1fr`) which collapses to block layout on mobile.
 - Print styles hide editor/nav and reset paper shadow/radius.
