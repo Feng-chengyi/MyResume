@@ -375,7 +375,24 @@ textarea.f-input{resize:vertical;min-height:68px;line-height:1.55}
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 <script>
+const SUPABASE_URL='https://YOUR_PROJECT_SUPABASE_URL';
+const SUPABASE_KEY='YOUR_SUPABASE_KEY';
+let _supabase=null;
+function initSupabase(){
+  if(typeof supabase!=='undefined'){
+    try{_supabase=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);console.log('Supabase 已连接')}catch(e){console.warn('Supabase 初始化失败:',e)}
+  }else{
+    console.warn('Supabase CDN 未加载，尝试动态加载...');
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    s.onload=()=>{try{_supabase=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);console.log('Supabase 动态加载成功')}catch(e){console.warn('Supabase 初始化失败:',e)}};
+    s.onerror=()=>console.error('Supabase CDN 加载失败，请检查网络');
+    document.head.appendChild(s);
+  }
+}
+initSupabase();
 const TMPLS=[
   {id:'classic',name:'经典黑白',sw:'#292524'},{id:'executive',name:'商务蓝',sw:'#1e3a5f'},
   {id:'creative',name:'设计师彩',sw:'#d4604e'},{id:'academic',name:'学术风',sw:'#3c3632'},
@@ -446,6 +463,12 @@ function isMobile(){return window.innerWidth<768}
 document.addEventListener('DOMContentLoaded',()=>{loadHash();buildTmplBar();buildEditor();renderPreview();initMobile()});
 function loadHash(){
   const h=location.hash.slice(1);if(!h)return;
+  if(_supabase&&h.length<=12&&/^[a-zA-Z0-9]+$/.test(h)){
+    _supabase.from('resumes').select('data').eq('id',h).single()
+      .then(({data})=>{if(data&&data.data){Object.assign(S,data.data);S.photo=data.data.photo||null;buildTmplBar();buildEditor();renderPreview()}})
+      .catch(()=>{});
+    return;
+  }
   try{const d=JSON.parse(decodeURIComponent(escape(atob(h))));if(d&&d.personal)Object.assign(S,d);S.photo=d.photo||null}catch(e){}
 }
 
@@ -655,10 +678,17 @@ function downloadPDF(){
 }
 
 function shareLink(){
-  try{const url=location.origin+location.pathname+'#'+btoa(unescape(encodeURIComponent(JSON.stringify(S))));
-    if(navigator.clipboard?.writeText)navigator.clipboard.writeText(url).then(()=>toast('链接已复制'));
-    else{const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('链接已复制')}
-  }catch(e){toast('生成链接失败')}
+  if(!_supabase){toast('分享功能未就绪，请稍后重试');return}
+  toast('正在生成链接...');
+  const s=JSON.parse(JSON.stringify(S));s.photo=null;
+  const id=Math.random().toString(36).slice(2,10);
+  _supabase.from('resumes').insert({id,data:s}).select()
+    .then(()=>{
+      const url=location.origin+location.pathname+'#'+id;
+      if(navigator.clipboard?.writeText)navigator.clipboard.writeText(url).then(()=>toast('链接已复制'));
+      else{const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);toast('链接已复制')}
+    })
+    .catch(e=>{console.error(e);toast('生成链接失败')});
 }
 </script>
 </body>
